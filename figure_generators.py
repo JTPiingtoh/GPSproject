@@ -193,7 +193,7 @@ def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str
             stdm_height = np.interp(mean - stdv, x_coords, y_coords)
             stdp_height = np.interp(mean + stdv, x_coords, y_coords)
 
-            ax.vlines(mean,0,mean_height, ls=":", colors=sns.color_palette("dark")[j])
+            ax.vlines(mean,0,mean_height, ls=":", colors=sns.color_palette(pallette)[j])
             # ax.fill_between(x_coords, 0, y_coords, where=(mean - stdv <= x_coords) & (x_coords <= mean + stdv), interpolate=False, facecolor=sns.color_palette("bright")[j], alpha=0.2)
 
             # ax.vlines(mean - stdv,0,stdm_height, ls=":", colors=sns.color_palette("bright")[j])
