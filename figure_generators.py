@@ -54,7 +54,15 @@ def interpolate_2D_array(arr, x_val: float|int) -> float:
             return intercept
 
 
-def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: bool, bw_adjust: int|float, height: int|float):
+def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: bool, bw_adjust: int|float, height: int|float, mean_values: dict = None, std_errs: dict = None, CIs: dict = None):
+
+    '''
+    If mean values are not supplied, will default to calculating mean
+    '''
+
+    if std_errs and CIs:
+        raise RuntimeError("Cannot show standard error and confidence intervals at the same time")
+
     g = sns.FacetGrid(df, row="team", hue="team", row_order=["1st", "U23", "U18", "U17"], height=height, aspect=5, palette=sns.color_palette(pallette))
     g.map(sns.kdeplot, measure, bw_adjust=bw_adjust, fill=True, alpha=.2, lw=2)
 
@@ -70,10 +78,17 @@ def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_st
             for j, collection in enumerate(ax.collections):
 
                 # Mean required to calulate x position of mean line
-                df_p = df[(df["team"] == g.row_names[i])]
-                mean = df_p[measure].mean()
-                stdv = np.std(df_p[measure])
-                
+                if not mean_values:
+                    df_p = df[(df["team"] == g.row_names[i])]
+                    mean = df_p[measure].mean()
+                    std = np.std(df_p[measure])
+
+                else:
+                    mean = mean_values[g.row_names[i]]
+                    std = std_errs[g.row_names[i]]
+                    lower_bound_95_pc = CIs[g.row_names[i]]
+                    upper_bound_95_pc = CIs[g.row_names[i]]
+
                 # vertices need to have y=0 coords filtered out for interp to work
                 vertices = collection.get_paths()[0].vertices
                 vertices = vertices[vertices.T[1] > 0]
@@ -82,15 +97,24 @@ def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_st
                 face_color = collection.get_facecolor()[j]
                 face_color[3] *= 1.5
                 R,G,B,A = face_color
+
                 # bubble sort to reduce risk of stack overflow?
                 x_coords, y_coords = bubblesort_by_x(vertices.T[0], vertices.T[1])
-                mean_height = np.interp(mean, x_coords, y_coords)
-                stdm_height = np.interp(mean - stdv, x_coords, y_coords)
-                stdp_height = np.interp(mean + stdv, x_coords, y_coords)
 
-                ax.fill_between(x_coords, 0, y_coords, where=(mean - stdv <= x_coords) & (x_coords <= mean + stdv), interpolate=False, facecolor=face_color)
-                
-                ax.vlines(mean,0,mean_height, ls=":", colors=[R,G,B, 1])
+                if std:
+                    mean_height = np.interp(mean, x_coords, y_coords)
+                    stdm_height = np.interp(mean - std, x_coords, y_coords)
+                    stdp_height = np.interp(mean + std, x_coords, y_coords)
+                    ax.fill_between(x_coords, 0, y_coords, where=(mean - std <= x_coords) & (x_coords <= mean + std), interpolate=False, facecolor=face_color)
+                    ax.vlines(mean,0,mean_height, ls=":", colors=[R,G,B, 1])
+
+                elif lower_bound_95_pc and upper_bound_95_pc:
+                    mean_height = np.interp(mean, x_coords, y_coords)
+                    stdm_height = np.interp(mean - lower_bound_95_pc, x_coords, y_coords)
+                    stdp_height = np.interp(mean + upper_bound_95_pc, x_coords, y_coords)
+                    ax.fill_between(x_coords, 0, y_coords, where=(mean - lower_bound_95_pc <= x_coords) & (x_coords <= mean + upper_bound_95_pc), interpolate=False, facecolor=face_color)
+                    ax.vlines(mean,0,mean_height, ls=":", colors=[R,G,B, 1])
+
 
                 # ax.vlines(mean - stdv,0,stdm_height, ls=":", colors=sns.color_palette("bright")[j])
                 # ax.vlines(mean + stdv,0,stdp_height, ls=":", colors=sns.color_palette("bright")[j])
@@ -110,6 +134,7 @@ def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_st
 
 
 def generate_RPs_position_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: bool, bw_adjust: int|float, height: int|float):
+
     g = sns.FacetGrid(df, row="position", hue="position", height=height, aspect=5, palette=sns.color_palette(pallette))
     g.map(sns.kdeplot, measure, bw_adjust=bw_adjust, fill=True, alpha=.2, lw=2)
 
@@ -164,6 +189,7 @@ def generate_RPs_position_row(df: pd.DataFrame, measure: str, pallette: str, sho
 
     
 def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str, bw_adjust: int|float, height: int|float, ):
+
     g = sns.FacetGrid(df, row="team", hue="position", row_order=["1st", "U23", "U18", "U17"], height=height, aspect=5, palette=sns.color_palette(pallette))
     g.map(sns.kdeplot, measure, bw_adjust=bw_adjust, fill=True, alpha=.05, lw=2)
 
