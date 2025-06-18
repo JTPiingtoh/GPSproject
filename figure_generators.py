@@ -53,17 +53,29 @@ def interpolate_2D_array(arr, x_val: float|int) -> float:
             intercept = (x + next_x) / 2
             return intercept
 
-
-def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: bool, bw_adjust: int|float, height: int|float, mean_values: dict = None, std_errs: dict = None, CIs: dict = None):
+# generate_RPs_team_row
+def generate_RPs_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: bool, bw_adjust: int|float, height: int|float, row: str, mean_values: dict = None, std_errs: dict = None, ci_lowers: dict = None, 
+                          ci_uppers: dict = None):
 
     '''
     If mean values are not supplied, will default to calculating mean
     '''
+    if row:
+        if  not (row == "team" or row == "position"):
+            raise RuntimeError("Row must be team or position")
 
-    if std_errs and CIs:
+    if std_errs and (ci_lowers or ci_uppers):
         raise RuntimeError("Cannot show standard error and confidence intervals at the same time")
 
-    g = sns.FacetGrid(df, row="team", hue="team", row_order=["1st", "U23", "U18", "U17"], height=height, aspect=5, palette=sns.color_palette(pallette))
+    if bool(ci_uppers) != bool(ci_lowers):
+        raise RuntimeError("Both uppper and lower bounds of the confidence interval must be supplied")
+
+    if row == "team":
+        row_order = ["1st", "U23", "U18", "U17"]
+    else:
+        row_order = None
+
+    g = sns.FacetGrid(df, row=row, hue=row, row_order=row_order, height=height, aspect=5, palette=sns.color_palette(pallette))
     g.map(sns.kdeplot, measure, bw_adjust=bw_adjust, fill=True, alpha=.2, lw=2)
 
 
@@ -74,20 +86,31 @@ def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_st
 
     # add mean lines   
     if(show_stdv):     
+
+        
+
         for i, ax in enumerate(g.axes.flat):
             for j, collection in enumerate(ax.collections):
 
+                df_p = df[(df[row] == g.row_names[i])]
+
+                if mean_values:
+                    mean = mean_values[g.row_names[i]]
+
                 # Mean required to calulate x position of mean line
-                if not mean_values:
-                    df_p = df[(df["team"] == g.row_names[i])]
+                else:    
                     mean = df_p[measure].mean()
+                           
+                if std_errs:
+                    std = std_errs[g.row_names[i]]
+                
+                elif ci_uppers and ci_lowers:
+                    ci_upper = ci_uppers[g.row_names[i]]
+                    ci_lower = ci_lowers[g.row_names[i]]
+                
+                else:
                     std = np.std(df_p[measure])
 
-                else:
-                    mean = mean_values[g.row_names[i]]
-                    std = std_errs[g.row_names[i]]
-                    lower_bound_95_pc = CIs[g.row_names[i]]
-                    upper_bound_95_pc = CIs[g.row_names[i]]
 
                 # vertices need to have y=0 coords filtered out for interp to work
                 vertices = collection.get_paths()[0].vertices
@@ -101,19 +124,21 @@ def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_st
                 # bubble sort to reduce risk of stack overflow?
                 x_coords, y_coords = bubblesort_by_x(vertices.T[0], vertices.T[1])
 
-                if std:
-                    mean_height = np.interp(mean, x_coords, y_coords)
-                    stdm_height = np.interp(mean - std, x_coords, y_coords)
-                    stdp_height = np.interp(mean + std, x_coords, y_coords)
-                    ax.fill_between(x_coords, 0, y_coords, where=(mean - std <= x_coords) & (x_coords <= mean + std), interpolate=False, facecolor=face_color)
-                    ax.vlines(mean,0,mean_height, ls=":", colors=[R,G,B, 1])
 
-                elif lower_bound_95_pc and upper_bound_95_pc:
-                    mean_height = np.interp(mean, x_coords, y_coords)
-                    stdm_height = np.interp(mean - lower_bound_95_pc, x_coords, y_coords)
-                    stdp_height = np.interp(mean + upper_bound_95_pc, x_coords, y_coords)
-                    ax.fill_between(x_coords, 0, y_coords, where=(mean - lower_bound_95_pc <= x_coords) & (x_coords <= mean + upper_bound_95_pc), interpolate=False, facecolor=face_color)
-                    ax.vlines(mean,0,mean_height, ls=":", colors=[R,G,B, 1])
+                # Draw mean line(should always draw)
+                mean_height = np.interp(mean, x_coords, y_coords)
+                ax.vlines(mean,0,mean_height, ls=":", colors=[R,G,B, 1])
+
+                if (mean_values and std_errs) or not (mean_values or std_errs):
+                    where = (mean - std <= x_coords) & (x_coords <= mean + std)
+                elif ci_uppers and ci_lowers:
+                    where = (ci_lower <= x_coords) & (x_coords <= ci_upper)
+                else:
+                    where = None 
+
+                # ensures std will only plot with mean values if std_errs are also supplied
+                ax.fill_between(x_coords, 0, y_coords, where=where, interpolate=False, facecolor=face_color)
+
 
 
                 # ax.vlines(mean - stdv,0,stdm_height, ls=":", colors=sns.color_palette("bright")[j])
@@ -132,7 +157,7 @@ def generate_RPs_team_row(df: pd.DataFrame, measure: str, pallette: str, show_st
     # g.add_legend(title="Position", loc="upper right", fontsize=12)
     g.refline(y=0, linewidth=0.5, linestyle="-", color=None, clip_on=False)
 
-
+# TODO: depreciate this, no longer needed
 def generate_RPs_position_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: bool, bw_adjust: int|float, height: int|float):
 
     g = sns.FacetGrid(df, row="position", hue="position", height=height, aspect=5, palette=sns.color_palette(pallette))
@@ -188,7 +213,7 @@ def generate_RPs_position_row(df: pd.DataFrame, measure: str, pallette: str, sho
     g.refline(y=0, linewidth=0.5, linestyle="-", color=None, clip_on=False)
 
     
-def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str, bw_adjust: int|float, height: int|float, ):
+def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str, bw_adjust: int|float, height: int|float, mean_values: dict = None):
 
     g = sns.FacetGrid(df, row="team", hue="position", row_order=["1st", "U23", "U18", "U17"], height=height, aspect=5, palette=sns.color_palette(pallette))
     g.map(sns.kdeplot, measure, bw_adjust=bw_adjust, fill=True, alpha=.05, lw=2)
@@ -199,15 +224,18 @@ def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str
                 fontsize=12, transform = ax.transAxes)
         ax.set_xlim(min(df[measure]), max(df[measure]))
         
-    
+   
     # add mean lines        
     for i, ax in enumerate(g.axes.flat):
         for j, collection in enumerate(ax.collections):
 
             # Mean required to calulate x position of mean line
-            df_p = df[(df["position"] == g.hue_names[j]) & (df["team"] == g.row_names[i])]
-            mean = df_p[measure].mean()
-            stdv = np.std(df_p[measure])
+            if mean_values:
+                mean = mean_values[g.hue_names[j], g.row_names[i]]
+
+            else:
+                df_p = df[(df["position"] == g.hue_names[j]) & (df["team"] == g.row_names[i])]
+                mean = df_p[measure].mean()
 
             # vertices need to have y=0 coords filtered out for interp to work
             vertices = collection.get_paths()[0].vertices
@@ -216,17 +244,9 @@ def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str
             # bubble sort to reduce risk of stack overflow?
             x_coords, y_coords = bubblesort_by_x(vertices.T[0], vertices.T[1])
             mean_height = np.interp(mean, x_coords, y_coords)
-            stdm_height = np.interp(mean - stdv, x_coords, y_coords)
-            stdp_height = np.interp(mean + stdv, x_coords, y_coords)
 
             ax.vlines(mean,0,mean_height, ls=":", colors=sns.color_palette(pallette)[j])
-            # ax.fill_between(x_coords, 0, y_coords, where=(mean - stdv <= x_coords) & (x_coords <= mean + stdv), interpolate=False, facecolor=sns.color_palette("bright")[j], alpha=0.2)
 
-            # ax.vlines(mean - stdv,0,stdm_height, ls=":", colors=sns.color_palette("bright")[j])
-            # ax.vlines(mean + stdv,0,stdp_height, ls=":", colors=sns.color_palette("bright")[j])
-            
-            
-        
     # Set the subplots to overlap
     g.figure.subplots_adjust(hspace=-.5)
 
