@@ -81,14 +81,11 @@ def generate_RPs_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: b
 
     for i, ax in enumerate(g.axes.flat):
         ax.text(-0.05, 0.8, g.row_names[i],
-                fontsize=12, transform = ax.transAxes)
+                fontsize=16, transform = ax.transAxes)
         ax.set_xlim(min(df[measure]), max(df[measure]))
 
     # add mean lines   
     if(show_stdv):     
-
-        
-
         for i, ax in enumerate(g.axes.flat):
             for j, collection in enumerate(ax.collections):
 
@@ -148,7 +145,7 @@ def generate_RPs_row(df: pd.DataFrame, measure: str, pallette: str, show_stdv: b
         
     # Set the subplots to overlap
     g.figure.subplots_adjust(hspace=-.5)
-    plt.xlabel(measure, fontsize=12)
+    plt.xlabel(measure, fontsize=16)
     g.set_titles("")
     # Remove axes details that don't play well with overlap
     
@@ -166,7 +163,7 @@ def generate_RPs_position_row(df: pd.DataFrame, measure: str, pallette: str, sho
 
     for i, ax in enumerate(g.axes.flat):
         ax.text(-0.05, 0.8, g.row_names[i],
-                fontsize=12, transform = ax.transAxes)
+                fontsize=16, transform = ax.transAxes)
         ax.set_xlim(min(df[measure]), max(df[measure]))
 
     # add mean lines
@@ -205,7 +202,7 @@ def generate_RPs_position_row(df: pd.DataFrame, measure: str, pallette: str, sho
     # Set the subplots to overlap
     g.figure.subplots_adjust(hspace=-.5)
     # Remove axes details that don't play well with overlap
-    plt.xlabel(measure, fontsize=12)
+    plt.xlabel(measure, fontsize=16)
     g.set_titles("")
     g.set(yticks=[], ylabel="")
     g.despine(bottom=False, left=True)
@@ -221,7 +218,7 @@ def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str
 
     for i, ax in enumerate(g.axes.flat):
         ax.text(-0.05, 0.8, g.row_names[i],
-                fontsize=12, transform = ax.transAxes)
+                fontsize=16, transform = ax.transAxes)
         ax.set_xlim(min(df[measure]), max(df[measure]))
         
    
@@ -252,8 +249,8 @@ def generate_RPs_team_position_row(df: pd.DataFrame, measure: str, pallette: str
 
     # Remove axes details that don't play well with overlap
     g.set_titles("")
-    plt.xlabel(measure, fontsize=12)
+    plt.xlabel(measure, fontsize=16)
     g.set(yticks=[], ylabel="")
     g.despine(bottom=False, left=True)
-    g.add_legend(title="", loc="upper right", fontsize=12)
+    g.add_legend(title="", loc="upper right", fontsize=16)
     g.refline(y=0, linewidth=0.5, linestyle="-", color=None, clip_on=False)
